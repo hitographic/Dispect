@@ -44,14 +44,20 @@ const CONFIG = {
         { key: 'photo_plakban', label: 'Plakban' }
     ],
 
-    // Records headers (23 kolom)
+    // Records headers (33 kolom)
     RECORDS_HEADERS: [
         'id', 'tanggal', 'flavor', 'nomorMaterial', 'negara', 'distributor',
         'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
-        'photo_bumbu', 'photo_mbumbu', 'photo_si',
-        'photo_kartonDepan', 'photo_kartonBelakang',
-        'photo_etiket', 'photo_etiketbanded', 'photo_plakban',
-        'kodeProduksi', 'validationStatus', 'validatedBy', 'validatedAt', 'validationReason'
+        'photo_bumbu', 'link_photo_bumbu',
+        'photo_mbumbu', 'link_photo_mbumbu',
+        'photo_si', 'link_photo_si',
+        'photo_kartonDepan', 'link_photo_kartonDepan',
+        'photo_kartonBelakang', 'link_photo_kartonBelakang',
+        'photo_etiket', 'link_photo_etiket',
+        'photo_etiketbanded', 'link_photo_etiketbanded',
+        'photo_plakban', 'link_photo_plakban',
+        'kodeProduksi1', 'kodeProduksi2', 'kodeProduksi3',
+        'validationStatus', 'validatedBy', 'validatedAt', 'validationReason'
     ],
 
     // User roles

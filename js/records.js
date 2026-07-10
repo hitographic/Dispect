@@ -261,11 +261,14 @@ function clearFilters() {
 function initPhotoUploadGrid() {
     const grid = document.getElementById('photoUploadGrid');
     grid.innerHTML = CONFIG.PHOTO_COLUMNS.map(col => `
-        <div class="photo-upload-item" id="upload_${col.key}">
-            <i class="fas fa-cloud-upload-alt upload-icon"></i>
-            <span class="upload-label">${col.label}</span>
-            <span class="upload-filename" id="filename_${col.key}"></span>
-            <input type="file" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" capture="environment">
+        <div class="photo-upload-container" style="display:flex; flex-direction:column; gap:8px;">
+            <input type="text" id="photoname_${col.key}" placeholder="Nama ${col.label}" style="width:100%; padding:8px; border:2px solid var(--gray-200); border-radius:var(--border-radius); font-size:0.85rem;" />
+            <div class="photo-upload-item" id="upload_${col.key}">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <span class="upload-label">${col.label}</span>
+                <span class="upload-filename" id="filename_${col.key}"></span>
+                <input type="file" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" capture="environment">
+            </div>
         </div>
     `).join('');
 }
@@ -317,17 +320,23 @@ function openEditModal(id) {
     document.getElementById('formNegara').value = record.negara || '';
     document.getElementById('formDistributor').value = record.distributor || '';
     document.getElementById('formFlavor').value = record.flavor || '';
-    document.getElementById('formKodeProduksi').value = record.kodeProduksi || '';
+    document.getElementById('formKodeProduksi1').value = record.kodeProduksi1 || '';
+    document.getElementById('formKodeProduksi2').value = record.kodeProduksi2 || '';
+    document.getElementById('formKodeProduksi3').value = record.kodeProduksi3 || '';
 
     photoFiles = {};
     initPhotoUploadGrid();
 
-    // Show existing photo names
+    // Show existing photo names and status
     CONFIG.PHOTO_COLUMNS.forEach(col => {
-        if (record[col.key]) {
+        const nameInput = document.getElementById(`photoname_${col.key}`);
+        if (nameInput) nameInput.value = record[col.key] || '';
+
+        const linkKey = 'link_' + col.key;
+        if (record[linkKey] || (record[col.key] && record[col.key].match(/[-\w]{25,}/))) {
             const filenameEl = document.getElementById(`filename_${col.key}`);
             const container = document.getElementById(`upload_${col.key}`);
-            if (filenameEl) filenameEl.textContent = record[col.key];
+            if (filenameEl) filenameEl.textContent = 'File terupload';
             if (container) container.classList.add('has-file');
         }
     });
@@ -347,7 +356,9 @@ async function saveRecord() {
     const negara = document.getElementById('formNegara').value.trim();
     const distributor = document.getElementById('formDistributor').value.trim();
     const flavor = document.getElementById('formFlavor').value.trim();
-    const kodeProduksi = document.getElementById('formKodeProduksi').value.trim();
+    const kodeProduksi1 = document.getElementById('formKodeProduksi1').value.trim();
+    const kodeProduksi2 = document.getElementById('formKodeProduksi2').value.trim();
+    const kodeProduksi3 = document.getElementById('formKodeProduksi3').value.trim();
 
     if (!tanggal || !nomorMaterial || !negara || !distributor || !flavor) {
         showToast('Mohon isi semua field yang wajib', 'warning');
@@ -375,7 +386,7 @@ async function saveRecord() {
                     folderName: photoLabel
                 });
                 if (result.success && result.fileId) {
-                    uploadedPhotos[key] = result.fileId;
+                    uploadedPhotos['link_' + key] = result.webViewLink || result.webContentLink || '';
                 }
             } catch (uploadErr) {
                 console.error(`Photo upload failed for ${key}:`, uploadErr);
@@ -389,9 +400,19 @@ async function saveRecord() {
             negara,
             distributor,
             flavor,
-            kodeProduksi,
+            kodeProduksi1,
+            kodeProduksi2,
+            kodeProduksi3,
             ...uploadedPhotos
         };
+
+        // Capture photo names from text inputs
+        CONFIG.PHOTO_COLUMNS.forEach(col => {
+            const nameInput = document.getElementById(`photoname_${col.key}`);
+            if (nameInput) {
+                recordData[col.key] = nameInput.value.trim();
+            }
+        });
 
         if (id) {
             // Update
@@ -498,7 +519,9 @@ function openPreview(id) {
     `;
 
     // Kode Produksi
-    document.getElementById('previewKodeProduksi').textContent = record.kodeProduksi || 'Tidak ada kode produksi';
+    document.getElementById('previewKodeProduksi1').textContent = record.kodeProduksi1 || '-';
+    document.getElementById('previewKodeProduksi2').textContent = record.kodeProduksi2 || '-';
+    document.getElementById('previewKodeProduksi3').textContent = record.kodeProduksi3 || '-';
 
     // Validation
     renderValidationSection(record);
@@ -519,29 +542,42 @@ function switchPhotoTab(btn, key) {
 
 async function showPhotoInViewer(key) {
     const viewer = document.getElementById('previewPhotoViewer');
-    const photoValue = currentPreviewRecord?.[key];
+    const photoName = currentPreviewRecord?.[key] || '';
+    const photoLink = currentPreviewRecord?.['link_' + key] || '';
+    
+    let fileId = null;
+    if (photoLink) {
+        const match = photoLink.match(/[-\w]{25,}/);
+        if (match) fileId = match[0];
+    } else if (photoName.match(/[-\w]{25,}/)) {
+        fileId = photoName; // fallback for old data
+    }
 
-    if (!photoValue) {
+    if (!fileId && !photoName) {
         viewer.innerHTML = `<div class="no-photo"><i class="fas fa-image"></i><span>Tidak ada foto</span></div>`;
+        return;
+    }
+    
+    if (!fileId) {
+        viewer.innerHTML = `<div class="no-photo" style="flex-direction:column; gap:10px;"><i class="fas fa-image" style="font-size:3rem; color:var(--gray-300);"></i><span><strong>${escapeHtml(photoName)}</strong></span><span style="font-size:0.85rem; color:var(--gray-500);">File foto belum diupload</span></div>`;
         return;
     }
 
     viewer.innerHTML = `<div class="no-photo"><i class="fas fa-spinner fa-spin"></i><span>Memuat foto...</span></div>`;
+    
+    const nameLabel = photoName && photoName !== fileId ? `<div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:white; padding:4px 8px; border-radius:4px; z-index:10; font-size:0.85rem;">${escapeHtml(photoName)}</div>` : '';
 
     try {
-        // Try to load photo via Apps Script
-        const result = await storage.getPhotoBase64({ fileId: photoValue });
+        const result = await storage.getPhotoBase64({ fileId: fileId });
         if (result.success && result.base64) {
-            viewer.innerHTML = `<img src="data:${result.mimeType || 'image/jpeg'};base64,${result.base64}" alt="Photo" loading="lazy">`;
+            viewer.innerHTML = `${nameLabel}<img src="data:${result.mimeType || 'image/jpeg'};base64,${result.base64}" alt="Photo" loading="lazy">`;
         } else {
-            // Fallback: try direct Google Drive URL
-            const driveUrl = `https://drive.google.com/thumbnail?id=${photoValue}&sz=w800`;
-            viewer.innerHTML = `<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
+            const driveUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+            viewer.innerHTML = `${nameLabel}<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
         }
     } catch (error) {
-        // Fallback: try as file ID
-        const driveUrl = `https://drive.google.com/thumbnail?id=${photoValue}&sz=w800`;
-        viewer.innerHTML = `<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
+        const driveUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+        viewer.innerHTML = `${nameLabel}<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
     }
 }
 
