@@ -21,13 +21,14 @@
 // 1. Records - Data inspeksi produk (23 kolom)
 // 2. Users - Data user (NIK, password, name, role, permissions)
 //
-// RECORDS STRUCTURE (23 kolom):
-// A:id, B:tanggal, C:flavor, D:nomorMaterial, E:negara, F:distributor,
-// G:createdAt, H:updatedAt, I:createdBy, J:updatedBy,
-// K:photo_bumbu, L:photo_mbumbu, M:photo_si,
-// N:photo_kartonDepan, O:photo_kartonBelakang,
-// P:photo_etiket, Q:photo_etiketbanded, R:photo_plakban,
-// S:kodeProduksi, T:validationStatus, U:validatedBy, V:validatedAt, W:validationReason
+// RECORDS STRUCTURE (33 kolom):
+// id, tanggal, flavor, nomorMaterial, negara, distributor,
+// createdAt, updatedAt, createdBy, updatedBy,
+// photo_bumbu, link_photo_bumbu, photo_mbumbu, link_photo_mbumbu,
+// photo_si, link_photo_si, photo_kartonDepan, link_photo_kartonDepan,
+// photo_kartonBelakang, link_photo_kartonBelakang, photo_etiket, link_photo_etiket,
+// photo_etiketbanded, link_photo_etiketbanded, photo_plakban, link_photo_plakban,
+// kodeProduksi1, kodeProduksi2, kodeProduksi3, validationStatus, validatedBy, validatedAt, validationReason
 // =====================================================
 
 // ===== CONFIGURATION =====
