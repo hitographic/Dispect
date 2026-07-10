@@ -5,7 +5,7 @@
 const CONFIG = {
     // Google Apps Script Web App URL
     // PENTING: Ganti dengan URL Web App setelah deploy Apps Script
-    GOOGLE_SHEETS_WEBAPP_URL: 'https://script.google.com/macros/s/AKfycby8ZhwYbIDHlBGkw_nU93t4PKLK48huq5UTtRLjQvW_lnz-_KeCTSy5FMQPoBoHYNNT/exec',
+    GOOGLE_SHEETS_WEBAPP_URL: 'https://script.google.com/macros/s/AKfycbyDo4mbp8-7toTDRM-I6RMN43-JjlxblTsJGdO8z9GfSEmy6uHYjrjNdNYwWBqwdA0V/exec',
 
     // Google Drive Folder ID untuk foto
     GOOGLE_DRIVE_FOLDER_ID: '1n8ym3VQ3mPoMkSzZwL-6Fwz-Xh54iyl4',
