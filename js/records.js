@@ -298,7 +298,6 @@ function openAddModal() {
     document.getElementById('btnSaveRecord').innerHTML = '<i class="fas fa-save"></i> Simpan';
     document.getElementById('editRecordId').value = '';
     document.getElementById('recordForm').reset();
-    document.getElementById('formTanggal').value = new Date().toISOString().split('T')[0];
     photoFiles = {};
     initPhotoUploadGrid();
     document.getElementById('addEditModal').classList.add('active');
@@ -314,8 +313,6 @@ function openEditModal(id) {
     document.getElementById('addEditTitle').innerHTML = '<i class="fas fa-edit"></i> Edit Data';
     document.getElementById('btnSaveRecord').innerHTML = '<i class="fas fa-save"></i> Update';
     document.getElementById('editRecordId').value = record.id;
-
-    document.getElementById('formTanggal').value = record.tanggal || '';
     document.getElementById('formNomorMaterial').value = record.nomorMaterial || '';
     document.getElementById('formNegara').value = record.negara || '';
     document.getElementById('formDistributor').value = record.distributor || '';
@@ -351,7 +348,6 @@ function closeAddEditModal() {
 
 async function saveRecord() {
     const id = document.getElementById('editRecordId').value;
-    const tanggal = document.getElementById('formTanggal').value;
     const nomorMaterial = document.getElementById('formNomorMaterial').value.trim();
     const negara = document.getElementById('formNegara').value.trim();
     const distributor = document.getElementById('formDistributor').value.trim();
@@ -360,13 +356,15 @@ async function saveRecord() {
     const kodeProduksi2 = document.getElementById('formKodeProduksi2').value.trim();
     const kodeProduksi3 = document.getElementById('formKodeProduksi3').value.trim();
 
-    if (!tanggal || !nomorMaterial || !negara || !distributor || !flavor) {
+    if (!nomorMaterial || !negara || !distributor || !flavor) {
         showToast('Mohon isi semua field yang wajib', 'warning');
         return;
     }
 
     const user = auth.getUser();
     const now = new Date().toISOString();
+    // Auto set tanggal to current date
+    const tanggal = now.split('T')[0];
     const btn = document.getElementById('btnSaveRecord');
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
@@ -386,7 +384,7 @@ async function saveRecord() {
                     folderName: photoLabel
                 });
                 if (result.success && result.fileId) {
-                    uploadedPhotos['link_' + key] = result.webViewLink || result.webContentLink || '';
+                    uploadedPhotos['link_' + key] = 'https://lh3.googleusercontent.com/d/' + result.fileId;
                 }
             } catch (uploadErr) {
                 console.error(`Photo upload failed for ${key}:`, uploadErr);
