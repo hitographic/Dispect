@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="DISPECT - User Management. Kelola akun pengguna aplikasi.">
+    <title>DISPECT - User Management</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="nav-brand-text">DISPECT</span>
+        </div>
+        <div class="nav-user">
+            <span class="nav-user-name" id="userName">Admin</span>
+            <a href="records.html" class="btn-nav">
+                <i class="fas fa-clipboard-list"></i> <span>Records</span>
+            </a>
+            <button class="btn-nav btn-logout" onclick="auth.logout()">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <div class="page-header">
+            <h1><i class="fas fa-users-cog"></i> User Management</h1>
+        </div>
+
+        <div class="action-bar">
+            <div class="action-bar-left">
+                <button class="btn-primary" onclick="openAddUserModal()">
+                    <i class="fas fa-user-plus"></i> Tambah User
+                </button>
+            </div>
+            <span style="font-size: 0.85rem; color: var(--gray-500);" id="userCount">0 users</span>
+        </div>
+
+        <!-- Users Table -->
+        <div class="users-table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th>NIK</th>
+                        <th>Nama</th>
+                        <th>Role</th>
+                        <th>Permissions</th>
+                        <th>Dibuat</th>
+                        <th style="text-align:center;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody id="usersTableBody">
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 40px; color: var(--gray-400);">
+                            <i class="fas fa-spinner fa-spin" style="font-size: 1.5rem;"></i><br>
+                            Memuat data user...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD / EDIT USER -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal-content" style="max-width: 520px;">
+            <div class="modal-header">
+                <h2 id="userModalTitle"><i class="fas fa-user-plus"></i> Tambah User Baru</h2>
+                <button class="modal-close" onclick="closeUserModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="userForm">
+                    <input type="hidden" id="editUserNik">
+
+                    <div class="form-group">
+                        <label><i class="fas fa-id-card"></i> NIK</label>
+                        <input type="text" id="formUserNik" placeholder="Masukkan NIK" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Password</label>
+                        <input type="text" id="formUserPassword" placeholder="Masukkan password" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Nama</label>
+                        <input type="text" id="formUserName" placeholder="Masukkan nama lengkap" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-user-tag"></i> Role</label>
+                        <select id="formUserRole" required>
+                            <option value="">Pilih role...</option>
+                            <option value="admin">Admin</option>
+                            <option value="supervisor">Supervisor</option>
+                            <option value="field">Field</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label><i class="fas fa-key"></i> Permissions</label>
+                        <div id="permissionsCheckboxes" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px;">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeUserModal()">
+                    <i class="fas fa-times"></i> Batal
+                </button>
+                <button class="btn-primary" id="btnSaveUser" onclick="saveUser()">
+                    <i class="fas fa-save"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sheets-db.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/users.js"></script>
+</body>
+</html>

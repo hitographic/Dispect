@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="DISPECT - Display Inspection Tracker. Login untuk mengakses sistem manajemen inspeksi produk.">
+    <title>DISPECT - Login</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-header">
+                <div>
+                    <h1>DISPECT</h1>
+                    <p>Display Inspection Tracker</p>
+                </div>
+            </div>
+            <form class="login-form" id="loginForm" onsubmit="handleLogin(event)">
+                <div class="login-error" id="loginError">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span id="loginErrorMsg">NIK atau password salah</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="loginNik">
+                        <i class="fas fa-id-card"></i> NIK
+                    </label>
+                    <input type="text" id="loginNik" placeholder="Masukkan NIK Anda" required autocomplete="username">
+                </div>
+
+                <div class="form-group">
+                    <label for="loginPassword">
+                        <i class="fas fa-lock"></i> Password
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" id="loginPassword" placeholder="Masukkan password" required autocomplete="current-password">
+                        <button type="button" class="toggle-password" onclick="togglePassword()" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="btnLogin">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Masuk</span>
+                </button>
+            </form>
+            <div class="login-footer">
+                <p>DISPECT v1.0.0 &copy; 2026</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        // Check if already logged in
+        document.addEventListener('DOMContentLoaded', function() {
+            if (auth.isLoggedIn()) {
+                const basePath = window.location.pathname.includes(CONFIG.BASE_PATH) ? CONFIG.BASE_PATH : './';
+                window.location.href = basePath + 'records.html';
+            }
+        });
+
+        function togglePassword() {
+            const input = document.getElementById('loginPassword');
+            const icon = document.getElementById('toggleIcon');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            const nik = document.getElementById('loginNik').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const btn = document.getElementById('btnLogin');
+            const errorDiv = document.getElementById('loginError');
+            const errorMsg = document.getElementById('loginErrorMsg');
+
+            if (!nik || !password) {
+                errorMsg.textContent = 'Mohon isi NIK dan password';
+                errorDiv.classList.add('show');
+                return;
+            }
+
+            // Loading state
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> <span>Memproses...</span>';
+            errorDiv.classList.remove('show');
+
+            try {
+                const result = await auth.login(nik, password);
+
+                if (result.success) {
+                    btn.innerHTML = '<i class="fas fa-check"></i> <span>Berhasil!</span>';
+                    btn.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+
+                    setTimeout(() => {
+                        const basePath = window.location.pathname.includes(CONFIG.BASE_PATH) ? CONFIG.BASE_PATH : './';
+                        window.location.href = basePath + 'records.html';
+                    }, 600);
+                } else {
+                    errorMsg.textContent = result.error || 'NIK atau password salah';
+                    errorDiv.classList.add('show');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Masuk</span>';
+                }
+            } catch (error) {
+                errorMsg.textContent = 'Terjadi kesalahan. Coba lagi.';
+                errorDiv.classList.add('show');
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span>Masuk</span>';
+            }
+        }
+    </script>
+</body>
+</html>

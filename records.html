@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="DISPECT - Display Records. Lihat, tambah, dan kelola data inspeksi produk.">
+    <title>DISPECT - Display Records</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="nav-brand">
+            <span class="nav-brand-text">DISPECT</span>
+        </div>
+        <div class="nav-user">
+            <span class="nav-user-name" id="userName">User</span>
+            <a href="users.html" class="btn-nav" id="userManagementLink" style="display:none;">
+                <i class="fas fa-users-cog"></i> <span>Users</span>
+            </a>
+            <button class="btn-nav btn-logout" onclick="auth.logout()">
+                <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content">
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1><i class="fas fa-clipboard-list"></i> Display Records</h1>
+        </div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="action-bar-left">
+                <button class="btn-primary" id="btnAddData" onclick="openAddModal()">
+                    <i class="fas fa-plus"></i> Tambah Data
+                </button>
+            </div>
+            <button class="btn-secondary" onclick="toggleSearch()">
+                <i class="fas fa-search"></i> Advanced Search
+            </button>
+        </div>
+
+        <!-- Search Panel -->
+        <div class="search-panel" id="searchPanel">
+            <div class="search-grid">
+                <div class="search-field">
+                    <label><i class="fas fa-barcode"></i> Nomor Material</label>
+                    <input type="text" id="searchNomorMaterial" placeholder="Cari nomor material..." oninput="applyFilters()">
+                </div>
+                <div class="search-field">
+                    <label><i class="fas fa-tag"></i> Flavor</label>
+                    <input type="text" id="searchFlavor" placeholder="Cari flavor..." oninput="applyFilters()">
+                </div>
+                <div class="search-field">
+                    <label><i class="fas fa-globe"></i> Negara</label>
+                    <input type="text" id="searchNegara" placeholder="Cari negara..." oninput="applyFilters()">
+                </div>
+                <div class="search-field">
+                    <label><i class="fas fa-building"></i> Distributor</label>
+                    <input type="text" id="searchDistributor" placeholder="Cari distributor..." oninput="applyFilters()">
+                </div>
+                <div class="search-field">
+                    <label><i class="fas fa-calendar"></i> Tanggal</label>
+                    <input type="date" id="searchDate" onchange="applyFilters()">
+                </div>
+                <div class="search-field">
+                    <label><i class="fas fa-check-circle"></i> Validasi</label>
+                    <select id="searchValidation" onchange="applyFilters()">
+                        <option value="">Semua</option>
+                        <option value="valid">Validated</option>
+                        <option value="not_validated">Not Validated</option>
+                        <option value="invalid">Invalid</option>
+                    </select>
+                </div>
+            </div>
+            <div class="search-actions" style="margin-top: 12px;">
+                <button class="btn-secondary btn-sm" onclick="clearFilters()">
+                    <i class="fas fa-times"></i> Reset
+                </button>
+            </div>
+        </div>
+
+        <!-- Records List -->
+        <div class="records-list" id="recordsGrid"></div>
+
+        <!-- Empty State -->
+        <div class="empty-state hidden" id="emptyState">
+            <i class="fas fa-inbox"></i>
+            <h3>Belum ada data</h3>
+            <p>Klik "Tambah Data" untuk menambahkan record baru</p>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination hidden" id="paginationContainer"></div>
+    </div>
+
+    <!-- =====================================================
+         MODAL: ADD / EDIT DATA
+         ===================================================== -->
+    <div class="modal-overlay" id="addEditModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="addEditTitle"><i class="fas fa-plus-circle"></i> Tambah Data Baru</h2>
+                <button class="modal-close" onclick="closeAddEditModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="recordForm">
+                    <input type="hidden" id="editRecordId">
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-info-circle"></i> Informasi Dasar</div>
+                        <div class="form-group">
+                            <label><i class="fas fa-calendar"></i> Tanggal</label>
+                            <input type="date" id="formTanggal" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fas fa-barcode"></i> Nomor Material</label>
+                                <input type="text" id="formNomorMaterial" placeholder="Masukkan nomor material" required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fas fa-globe"></i> Negara</label>
+                                <input type="text" id="formNegara" placeholder="Ketik nama negara..." required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label><i class="fas fa-building"></i> Distributor</label>
+                                <input type="text" id="formDistributor" placeholder="Ketik nama distributor..." required>
+                            </div>
+                            <div class="form-group">
+                                <label><i class="fas fa-tag"></i> Nama Flavor</label>
+                                <input type="text" id="formFlavor" placeholder="Ketik nama flavor..." required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <div class="form-section-title"><i class="fas fa-camera"></i> Foto Produk</div>
+                        <div class="photo-upload-grid" id="photoUploadGrid">
+                            <!-- Generated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="kode-produksi-group">
+                        <label><i class="fas fa-qrcode"></i> Kode Produksi</label>
+                        <textarea id="formKodeProduksi" placeholder="Masukkan kode produksi (opsional)"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAddEditModal()">
+                    <i class="fas fa-times"></i> Batal
+                </button>
+                <button class="btn-primary" id="btnSaveRecord" onclick="saveRecord()">
+                    <i class="fas fa-save"></i> Simpan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         MODAL: PREVIEW / VIEW DETAIL
+         ===================================================== -->
+    <div class="modal-overlay" id="previewModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h2><i class="fas fa-eye"></i> Detail Record</h2>
+                <button class="modal-close" onclick="closePreviewModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <!-- Photo Tabs -->
+                <div class="photo-tabs" id="previewPhotoTabs"></div>
+
+                <!-- Photo Viewer -->
+                <div class="photo-viewer" id="previewPhotoViewer">
+                    <div class="no-photo">
+                        <i class="fas fa-image"></i>
+                        <span>Pilih tab foto</span>
+                    </div>
+                </div>
+
+                <!-- Preview Info -->
+                <div class="preview-info-grid" id="previewInfoGrid"></div>
+
+                <!-- Kode Produksi -->
+                <div class="kode-produksi-group">
+                    <label>Kode Produksi:</label>
+                    <div id="previewKodeProduksi" style="padding: 10px 14px; background: var(--gray-50); border-radius: var(--border-radius); font-size: 0.9rem; color: var(--gray-700); min-height: 40px; border: 1px solid var(--gray-200);">-</div>
+                </div>
+
+                <!-- Validation Section -->
+                <div class="validation-section" id="validationSection">
+                    <h3><i class="fas fa-check-double"></i> Validasi Data</h3>
+                    <div id="validationContent"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- =====================================================
+         MODAL: VALIDATION
+         ===================================================== -->
+    <div class="modal-overlay" id="validationModal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h2><i class="fas fa-clipboard-check"></i> Validasi Record</h2>
+                <button class="modal-close" onclick="closeValidationModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="validateRecordId">
+                <div class="form-group">
+                    <label><i class="fas fa-check-circle"></i> Status Validasi</label>
+                    <select id="validationStatus" required>
+                        <option value="">Pilih status...</option>
+                        <option value="valid">✅ Valid - Data sudah sesuai</option>
+                        <option value="invalid">❌ Invalid - Data tidak sesuai</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-comment"></i> Alasan / Catatan</label>
+                    <textarea id="validationReason" placeholder="Tambahkan catatan validasi (opsional)" style="width:100%;padding:10px 14px;border:2px solid var(--gray-200);border-radius:var(--border-radius);font-size:0.9rem;font-family:inherit;resize:vertical;min-height:80px;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeValidationModal()">
+                    <i class="fas fa-times"></i> Batal
+                </button>
+                <button class="btn-success" onclick="submitValidation()">
+                    <i class="fas fa-check"></i> Simpan Validasi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/sheets-db.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/records.js"></script>
+</body>
+</html>
