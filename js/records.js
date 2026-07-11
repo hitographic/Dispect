@@ -9,6 +9,7 @@ let currentPreviewRecord = null;
 let currentPage = 1;
 let recordsPerPage = CONFIG.DEFAULT_PAGE_SIZE;
 let photoFiles = {};
+let photosToDelete = new Set();
 
 // =====================================================
 // INITIALIZATION
@@ -265,12 +266,24 @@ function initPhotoUploadGrid() {
             <input type="text" id="photoname_${col.key}" placeholder="Nama ${col.label}" style="width:100%; padding:8px; border:2px solid var(--gray-200); border-radius:var(--border-radius); font-size:0.85rem;" />
             <div class="photo-upload-item" id="upload_${col.key}">
                 <img id="preview_img_${col.key}" class="photo-preview-img hidden" src="" alt="Preview">
-                <div class="upload-content" id="upload_content_${col.key}">
+                <label class="upload-content" id="upload_content_${col.key}" for="upload_file_${col.key}">
                     <i class="fas fa-cloud-upload-alt upload-icon"></i>
                     <span class="upload-label">${col.label}</span>
                     <span class="upload-filename" id="filename_${col.key}"></span>
+                </label>
+                <div class="upload-actions">
+                    <button type="button" class="action-btn delete-btn hidden" id="delete_btn_${col.key}" onclick="removePhoto('${col.key}', event)" title="Hapus Foto">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <label class="action-btn upload-btn" title="Pilih File">
+                        <i class="fas fa-folder-open"></i>
+                        <input type="file" id="upload_file_${col.key}" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" style="display:none;">
+                    </label>
+                    <label class="action-btn camera-btn" title="Ambil Foto">
+                        <i class="fas fa-camera"></i>
+                        <input type="file" accept="image/*" capture="environment" onchange="handlePhotoSelect(event, '${col.key}')" style="display:none;">
+                    </label>
                 </div>
-                <input type="file" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" capture="environment">
             </div>
         </div>
     `).join('');
@@ -281,23 +294,41 @@ function handlePhotoSelect(event, key) {
     const container = document.getElementById(`upload_${key}`);
     const filenameEl = document.getElementById(`filename_${key}`);
     const previewImg = document.getElementById(`preview_img_${key}`);
+    const deleteBtn = document.getElementById(`delete_btn_${key}`);
 
     if (file) {
         photoFiles[key] = file;
+        photosToDelete.delete(key);
         container.classList.add('has-file');
         filenameEl.textContent = file.name;
         if (previewImg) {
             previewImg.src = URL.createObjectURL(file);
             previewImg.classList.remove('hidden');
         }
-    } else {
-        delete photoFiles[key];
-        container.classList.remove('has-file');
-        filenameEl.textContent = '';
-        if (previewImg) {
-            previewImg.src = '';
-            previewImg.classList.add('hidden');
-        }
+        if (deleteBtn) deleteBtn.classList.remove('hidden');
+    }
+}
+
+window.removePhoto = function(key, event) {
+    if (event) event.stopPropagation();
+    delete photoFiles[key];
+    photosToDelete.add(key);
+
+    const container = document.getElementById(`upload_${key}`);
+    const filenameEl = document.getElementById(`filename_${key}`);
+    const previewImg = document.getElementById(`preview_img_${key}`);
+    const deleteBtn = document.getElementById(`delete_btn_${key}`);
+    const fileInput = document.getElementById(`upload_file_${key}`);
+
+    if (fileInput) fileInput.value = '';
+    if (container) container.classList.remove('has-file');
+    if (filenameEl) filenameEl.textContent = '';
+    if (previewImg) {
+        previewImg.src = '';
+        previewImg.classList.add('hidden');
+    }
+    if (deleteBtn) {
+        deleteBtn.classList.add('hidden');
     }
 }
 
@@ -311,6 +342,7 @@ function openAddModal() {
     document.getElementById('editRecordId').value = '';
     document.getElementById('recordForm').reset();
     photoFiles = {};
+    photosToDelete = new Set();
     initPhotoUploadGrid();
     document.getElementById('addEditModal').classList.add('active');
 }
@@ -334,6 +366,7 @@ function openEditModal(id) {
     document.getElementById('formKodeProduksi3').value = record.kodeProduksi3 || '';
 
     photoFiles = {};
+    photosToDelete = new Set();
     initPhotoUploadGrid();
 
     // Show existing photo names and status
@@ -347,6 +380,7 @@ function openEditModal(id) {
         const previewImg = document.getElementById(`preview_img_${col.key}`);
         const filenameEl = document.getElementById(`filename_${col.key}`);
         const container = document.getElementById(`upload_${col.key}`);
+        const deleteBtn = document.getElementById(`delete_btn_${col.key}`);
 
         let fileId = null;
         if (photoLink) {
@@ -359,6 +393,7 @@ function openEditModal(id) {
         if (fileId) {
             if (filenameEl) filenameEl.textContent = 'Memuat...';
             if (container) container.classList.add('has-file');
+            if (deleteBtn) deleteBtn.classList.remove('hidden');
             
             if (previewImg) {
                 previewImg.classList.remove('hidden');
@@ -431,6 +466,10 @@ async function saveRecord() {
             }
         }
         hideLoading();
+
+        photosToDelete.forEach(key => {
+            uploadedPhotos['link_' + key] = '';
+        });
 
         const recordData = {
             tanggal,

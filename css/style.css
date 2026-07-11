@@ -1071,6 +1071,8 @@ a { text-decoration: none; color: inherit; }
     background: rgba(255, 255, 255, 0.85);
     border-radius: calc(var(--border-radius) - 2px);
     transition: opacity 0.3s;
+    cursor: pointer;
+    padding-bottom: 24px;
 }
 
 .photo-upload-item.has-file .upload-content {
@@ -1096,6 +1098,47 @@ a { text-decoration: none; color: inherit; }
     color: var(--gray-500);
     word-break: break-all;
     max-width: 100%;
+}
+
+.upload-actions {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+}
+
+.action-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--white);
+    border: 1px solid var(--gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--gray-600);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: var(--gray-50);
+    color: var(--primary-color);
+}
+
+.action-btn.delete-btn {
+    color: var(--danger-color);
+}
+.action-btn.delete-btn:hover {
+    background: var(--danger-50);
+}
+
+.action-btn.hidden {
+    display: none !important;
 }
 
 .photo-upload-item input[type="file"] {
