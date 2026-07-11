@@ -530,8 +530,7 @@ function handleUploadPhoto(params) {
     var blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
     var file = targetFolder.createFile(blob);
 
-    // Make file publicly viewable
-    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
 
     return {
       success: true,

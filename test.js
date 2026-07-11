@@ -1,5 +1,5 @@
 const fs = require('fs');
-fetch('https://script.google.com/macros/s/AKfycby8ZhwYbIDHlBGkw_nU93t4PKLK48huq5UTtRLjQvW_lnz-_KeCTSy5FMQPoBoHYNNT/exec', {
+fetch('https://script.google.com/macros/s/AKfycbyDo4mbp8-7toTDRM-I6RMN43-JjlxblTsJGdO8z9GfSEmy6uHYjrjNdNYwWBqwdA0V/exec', {
   method: 'POST',
   body: JSON.stringify({
     action: 'uploadPhoto',

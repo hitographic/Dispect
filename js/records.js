@@ -264,9 +264,12 @@ function initPhotoUploadGrid() {
         <div class="photo-upload-container" style="display:flex; flex-direction:column; gap:8px;">
             <input type="text" id="photoname_${col.key}" placeholder="Nama ${col.label}" style="width:100%; padding:8px; border:2px solid var(--gray-200); border-radius:var(--border-radius); font-size:0.85rem;" />
             <div class="photo-upload-item" id="upload_${col.key}">
-                <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                <span class="upload-label">${col.label}</span>
-                <span class="upload-filename" id="filename_${col.key}"></span>
+                <img id="preview_img_${col.key}" class="photo-preview-img hidden" src="" alt="Preview">
+                <div class="upload-content" id="upload_content_${col.key}">
+                    <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                    <span class="upload-label">${col.label}</span>
+                    <span class="upload-filename" id="filename_${col.key}"></span>
+                </div>
                 <input type="file" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" capture="environment">
             </div>
         </div>
@@ -277,15 +280,24 @@ function handlePhotoSelect(event, key) {
     const file = event.target.files[0];
     const container = document.getElementById(`upload_${key}`);
     const filenameEl = document.getElementById(`filename_${key}`);
+    const previewImg = document.getElementById(`preview_img_${key}`);
 
     if (file) {
         photoFiles[key] = file;
         container.classList.add('has-file');
         filenameEl.textContent = file.name;
+        if (previewImg) {
+            previewImg.src = URL.createObjectURL(file);
+            previewImg.classList.remove('hidden');
+        }
     } else {
         delete photoFiles[key];
         container.classList.remove('has-file');
         filenameEl.textContent = '';
+        if (previewImg) {
+            previewImg.src = '';
+            previewImg.classList.add('hidden');
+        }
     }
 }
 
@@ -330,11 +342,39 @@ function openEditModal(id) {
         if (nameInput) nameInput.value = record[col.key] || '';
 
         const linkKey = 'link_' + col.key;
-        if (record[linkKey] || (record[col.key] && record[col.key].match(/[-\w]{25,}/))) {
-            const filenameEl = document.getElementById(`filename_${col.key}`);
-            const container = document.getElementById(`upload_${col.key}`);
-            if (filenameEl) filenameEl.textContent = 'File terupload';
+        const photoLink = record[linkKey] || '';
+        const photoName = record[col.key] || '';
+        const previewImg = document.getElementById(`preview_img_${col.key}`);
+        const filenameEl = document.getElementById(`filename_${col.key}`);
+        const container = document.getElementById(`upload_${col.key}`);
+
+        let fileId = null;
+        if (photoLink) {
+            const match = photoLink.match(/[-\w]{25,}/);
+            if (match) fileId = match[0];
+        } else if (photoName.match(/[-\w]{25,}/)) {
+            fileId = photoName;
+        }
+
+        if (fileId) {
+            if (filenameEl) filenameEl.textContent = 'Memuat...';
             if (container) container.classList.add('has-file');
+            
+            if (previewImg) {
+                previewImg.classList.remove('hidden');
+                // Fetch base64 asynchronously just like in Detail Viewer
+                storage.getPhotoBase64({ fileId }).then(result => {
+                    if (result.success && result.base64) {
+                        previewImg.src = `data:${result.mimeType || 'image/jpeg'};base64,${result.base64}`;
+                    } else {
+                        previewImg.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+                    }
+                    if (filenameEl) filenameEl.textContent = 'File terupload';
+                }).catch(() => {
+                    previewImg.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
+                    if (filenameEl) filenameEl.textContent = 'File terupload';
+                });
+            }
         }
     });
 
