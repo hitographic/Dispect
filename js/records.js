@@ -272,16 +272,16 @@ function initPhotoUploadGrid() {
                     <span class="upload-filename" id="filename_${col.key}"></span>
                 </label>
                 <div class="upload-actions">
-                    <button type="button" class="action-btn delete-btn hidden" id="delete_btn_${col.key}" onclick="removePhoto('${col.key}', event)" title="Hapus Foto">
+                    <button type="button" class="action-btn delete-btn hidden" id="delete_btn_${col.key}" onclick="removePhotoWithConfirm('${col.key}', event)" title="Hapus Foto">
                         <i class="fas fa-trash"></i>
                     </button>
-                    <label class="action-btn upload-btn" title="Pilih File">
+                    <label class="action-btn upload-btn" title="Pilih File" onclick="checkOverwrite(event, '${col.key}', 'upload_file_${col.key}')">
                         <i class="fas fa-folder-open"></i>
                         <input type="file" id="upload_file_${col.key}" accept="image/*" onchange="handlePhotoSelect(event, '${col.key}')" style="display:none;">
                     </label>
-                    <label class="action-btn camera-btn" title="Ambil Foto">
+                    <label class="action-btn camera-btn" title="Ambil Foto" onclick="checkOverwrite(event, '${col.key}', 'camera_file_${col.key}')">
                         <i class="fas fa-camera"></i>
-                        <input type="file" accept="image/*" capture="environment" onchange="handlePhotoSelect(event, '${col.key}')" style="display:none;">
+                        <input type="file" id="camera_file_${col.key}" accept="image/*" capture="environment" onchange="handlePhotoSelect(event, '${col.key}')" style="display:none;">
                     </label>
                 </div>
             </div>
@@ -306,6 +306,46 @@ function handlePhotoSelect(event, key) {
             previewImg.classList.remove('hidden');
         }
         if (deleteBtn) deleteBtn.classList.remove('hidden');
+    }
+}
+
+window.removePhotoWithConfirm = function(key, event) {
+    if (event) event.stopPropagation();
+    
+    Swal.fire({
+        title: 'Yakin hapus foto?',
+        text: 'Foto ini akan dihapus permanen dari Google Drive & Sheet saat Anda klik Update.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Ya, hapus!',
+        cancelButtonText: 'Batal'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            removePhoto(key, null);
+        }
+    });
+}
+
+window.checkOverwrite = function(event, key, inputId) {
+    const container = document.getElementById(`upload_${key}`);
+    if (container.classList.contains('has-file')) {
+        event.preventDefault();
+        Swal.fire({
+            title: 'Yakin ganti foto?',
+            text: 'Foto lama akan dihapus permanen saat Anda klik Update.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#3085d6',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Ya, ganti!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                document.getElementById(inputId).click();
+            }
+        });
     }
 }
 

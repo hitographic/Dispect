@@ -147,6 +147,17 @@ class Storage {
         return { success: false, error: 'Offline - cannot upload' };
     }
 
+    async deletePhoto(fileId) {
+        if (this.useGoogleSheets && this.isOnline) {
+            try {
+                return await sheetsDB.deletePhoto(fileId);
+            } catch (error) {
+                console.error('❌ Storage: Error deleting photo:', error);
+            }
+        }
+        return { success: false, error: 'Offline - cannot delete' };
+    }
+
     async getPhotoBase64(params) {
         if (this.useGoogleSheets && this.isOnline) {
             try {
