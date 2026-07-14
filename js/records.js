@@ -269,6 +269,9 @@ function initPhotoUploadGrid() {
                     <span class="upload-filename" id="filename_${col.key}"></span>
                 </label>
                 <div class="upload-actions">
+                    <button type="button" class="action-btn preview-btn hidden" id="preview_btn_${col.key}" onclick="previewFullImage('${col.key}', event)" title="Lihat Penuh">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
                     <button type="button" class="action-btn delete-btn hidden" id="delete_btn_${col.key}" onclick="removePhotoWithConfirm('${col.key}', event)" title="Hapus Foto">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -292,6 +295,7 @@ function handlePhotoSelect(event, key) {
     const filenameEl = document.getElementById(`filename_${key}`);
     const previewImg = document.getElementById(`preview_img_${key}`);
     const deleteBtn = document.getElementById(`delete_btn_${key}`);
+    const previewBtn = document.getElementById(`preview_btn_${key}`);
 
     if (file) {
         photoFiles[key] = file;
@@ -303,6 +307,23 @@ function handlePhotoSelect(event, key) {
             previewImg.classList.remove('hidden');
         }
         if (deleteBtn) deleteBtn.classList.remove('hidden');
+        if (previewBtn) previewBtn.classList.remove('hidden');
+    }
+}
+
+window.previewFullImage = function(key, event) {
+    if (event) event.stopPropagation();
+    const previewImg = document.getElementById(`preview_img_${key}`);
+    if (previewImg && previewImg.src) {
+        Swal.fire({
+            imageUrl: previewImg.src,
+            imageAlt: 'Preview Foto',
+            showConfirmButton: false,
+            showCloseButton: true,
+            customClass: {
+                image: 'full-preview-image'
+            }
+        });
     }
 }
 
@@ -355,6 +376,7 @@ window.removePhoto = function(key, event) {
     const filenameEl = document.getElementById(`filename_${key}`);
     const previewImg = document.getElementById(`preview_img_${key}`);
     const deleteBtn = document.getElementById(`delete_btn_${key}`);
+    const previewBtn = document.getElementById(`preview_btn_${key}`);
     const fileInput = document.getElementById(`upload_file_${key}`);
 
     if (fileInput) fileInput.value = '';
@@ -366,6 +388,9 @@ window.removePhoto = function(key, event) {
     }
     if (deleteBtn) {
         deleteBtn.classList.add('hidden');
+    }
+    if (previewBtn) {
+        previewBtn.classList.add('hidden');
     }
 }
 
@@ -420,6 +445,7 @@ function openEditModal(id) {
         const filenameEl = document.getElementById(`filename_${col.key}`);
         const container = document.getElementById(`upload_${col.key}`);
         const deleteBtn = document.getElementById(`delete_btn_${col.key}`);
+        const previewBtn = document.getElementById(`preview_btn_${col.key}`);
 
         let fileId = null;
         if (photoLink) {
@@ -430,24 +456,15 @@ function openEditModal(id) {
         }
 
         if (fileId) {
-            if (filenameEl) filenameEl.textContent = 'Memuat...';
+            if (filenameEl) filenameEl.textContent = 'File terupload';
             if (container) container.classList.add('has-file');
             if (deleteBtn) deleteBtn.classList.remove('hidden');
+            if (previewBtn) previewBtn.classList.remove('hidden');
             
             if (previewImg) {
                 previewImg.classList.remove('hidden');
-                // Fetch base64 asynchronously just like in Detail Viewer
-                storage.getPhotoBase64({ fileId }).then(result => {
-                    if (result.success && result.base64) {
-                        previewImg.src = `data:${result.mimeType || 'image/jpeg'};base64,${result.base64}`;
-                    } else {
-                        previewImg.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
-                    }
-                    if (filenameEl) filenameEl.textContent = 'File terupload';
-                }).catch(() => {
-                    previewImg.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w400`;
-                    if (filenameEl) filenameEl.textContent = 'File terupload';
-                });
+                // Use fast Google Drive Thumbnail URL
+                previewImg.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
             }
         }
     });

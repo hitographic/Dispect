@@ -1551,3 +1551,11 @@ a { text-decoration: none; color: inherit; }
         font-size: 0.75rem;
     }
 }
+
+/* Full Preview Image for SweetAlert */
+.full-preview-image {
+    max-height: 80vh !important;
+    object-fit: contain;
+    border-radius: 8px;
+    margin: 0 !important;
+}
