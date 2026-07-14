@@ -754,6 +754,3 @@ function renderValidationSection(record) {
         `;
     }
 }
-
-    }
-}
