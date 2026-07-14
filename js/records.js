@@ -720,18 +720,8 @@ async function showPhotoInViewer(key) {
     
     const nameLabel = photoName && photoName !== fileId ? `<div style="position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.6); color:white; padding:4px 8px; border-radius:4px; z-index:10; font-size:0.85rem;">${escapeHtml(photoName)}</div>` : '';
 
-    try {
-        const result = await storage.getPhotoBase64({ fileId: fileId });
-        if (result.success && result.base64) {
-            viewer.innerHTML = `${nameLabel}<img src="data:${result.mimeType || 'image/jpeg'};base64,${result.base64}" alt="Photo" loading="lazy">`;
-        } else {
-            const driveUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
-            viewer.innerHTML = `${nameLabel}<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
-        }
-    } catch (error) {
-        const driveUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
-        viewer.innerHTML = `${nameLabel}<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
-    }
+    const driveUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w800`;
+    viewer.innerHTML = `${nameLabel}<img src="${driveUrl}" alt="Photo" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'no-photo\\'><i class=\\'fas fa-exclamation-triangle\\'></i><span>Gagal memuat foto</span></div>'">`;
 }
 
 function renderValidationSection(record) {
