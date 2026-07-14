@@ -153,6 +153,23 @@
                         <label><i class="fas fa-qrcode"></i> Kode Produksi 3</label>
                         <textarea id="formKodeProduksi3" placeholder="Masukkan kode produksi 3 (opsional)" style="min-height: 40px;"></textarea>
                     </div>
+
+                    <!-- Validation Section (Only for Edit & if has permission) -->
+                    <div class="form-section" id="editValidationSection" style="display:none; margin-top: 20px; padding: 16px; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--border-radius-lg);">
+                        <div class="form-section-title" style="margin-bottom: 12px; color: var(--gray-800);"><i class="fas fa-clipboard-check"></i> Validasi Record</div>
+                        <div class="form-group">
+                            <label><i class="fas fa-check-circle"></i> Status Validasi</label>
+                            <select id="editValidationStatus">
+                                <option value="">Belum divalidasi</option>
+                                <option value="valid">✅ Valid - Data sudah sesuai</option>
+                                <option value="invalid">❌ Invalid - Data tidak sesuai</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-comment"></i> Alasan / Catatan</label>
+                            <textarea id="editValidationReason" placeholder="Tambahkan catatan validasi (opsional)" style="width:100%;padding:10px 14px;border:2px solid var(--gray-200);border-radius:var(--border-radius);font-size:0.9rem;font-family:inherit;resize:vertical;min-height:80px;"></textarea>
+                        </div>
+                    </div>
                 </form>
             </div>
             <div class="modal-footer">
@@ -211,40 +228,7 @@
         </div>
     </div>
 
-    <!-- =====================================================
-         MODAL: VALIDATION
-         ===================================================== -->
-    <div class="modal-overlay" id="validationModal">
-        <div class="modal-content" style="max-width: 480px;">
-            <div class="modal-header">
-                <h2><i class="fas fa-clipboard-check"></i> Validasi Record</h2>
-                <button class="modal-close" onclick="closeValidationModal()"><i class="fas fa-times"></i></button>
-            </div>
-            <div class="modal-body">
-                <input type="hidden" id="validateRecordId">
-                <div class="form-group">
-                    <label><i class="fas fa-check-circle"></i> Status Validasi</label>
-                    <select id="validationStatus" required>
-                        <option value="">Pilih status...</option>
-                        <option value="valid">✅ Valid - Data sudah sesuai</option>
-                        <option value="invalid">❌ Invalid - Data tidak sesuai</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-comment"></i> Alasan / Catatan</label>
-                    <textarea id="validationReason" placeholder="Tambahkan catatan validasi (opsional)" style="width:100%;padding:10px 14px;border:2px solid var(--gray-200);border-radius:var(--border-radius);font-size:0.9rem;font-family:inherit;resize:vertical;min-height:80px;"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button class="btn-secondary" onclick="closeValidationModal()">
-                    <i class="fas fa-times"></i> Batal
-                </button>
-                <button class="btn-success" onclick="submitValidation()">
-                    <i class="fas fa-check"></i> Simpan Validasi
-                </button>
-            </div>
-        </div>
-    </div>
+    <!-- MODAL VALIDATION REMOVED (Merged to Edit) -->
 
     <!-- Scripts -->
     <script src="js/config.js"></script>

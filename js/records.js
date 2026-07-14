@@ -130,16 +130,13 @@ function renderRecords() {
                         <button class="btn-action view" onclick="openPreview('${record.id}')" title="Lihat Detail">
                             <i class="fas fa-eye"></i>
                         </button>
-                        ${userCanEdit ? `
-                        <button class="btn-action edit" onclick="openEditModal('${record.id}')" title="Edit">
+                        ${userCanEdit || userCanValidate ? `
+                        <button class="btn-action edit" onclick="openEditModal('${record.id}')" title="Edit / Validasi">
                             <i class="fas fa-edit"></i>
-                        </button>
+                        </button>` : ''}
+                        ${userCanEdit ? `
                         <button class="btn-action delete" onclick="deleteRecord('${record.id}')" title="Hapus">
                             <i class="fas fa-trash"></i>
-                        </button>` : ''}
-                        ${userCanValidate ? `
-                        <button class="btn-action validate" onclick="openValidationModal('${record.id}')" title="Validasi">
-                            <i class="fas fa-clipboard-check"></i>
                         </button>` : ''}
                     </div>
                 </div>
@@ -383,6 +380,8 @@ function openAddModal() {
     document.getElementById('recordForm').reset();
     photoFiles = {};
     photosToDelete = new Set();
+    const valSection = document.getElementById('editValidationSection');
+    if (valSection) valSection.style.display = 'none';
     initPhotoUploadGrid();
     document.getElementById('addEditModal').classList.add('active');
 }
@@ -452,6 +451,14 @@ function openEditModal(id) {
             }
         }
     });
+
+    if (canValidate()) {
+        document.getElementById('editValidationSection').style.display = 'block';
+        document.getElementById('editValidationStatus').value = record.validationStatus || '';
+        document.getElementById('editValidationReason').value = record.validationReason || '';
+    } else {
+        document.getElementById('editValidationSection').style.display = 'none';
+    }
 
     document.getElementById('addEditModal').classList.add('active');
 }
@@ -536,6 +543,18 @@ async function saveRecord() {
             recordData.updatedAt = now;
             recordData.updatedBy = user?.name || 'Unknown';
             await storage.updateRecord(id, recordData);
+            
+            if (canValidate()) {
+                const validationStatus = document.getElementById('editValidationStatus').value;
+                const validationReason = document.getElementById('editValidationReason').value;
+                await storage.validateRecord(id, {
+                    validationStatus,
+                    validationReason,
+                    validatedBy: user?.name,
+                    validatedAt: now
+                });
+            }
+            
             showToast('✅ Data berhasil diupdate', 'success');
         } else {
             // Add new
@@ -736,48 +755,5 @@ function renderValidationSection(record) {
     }
 }
 
-// =====================================================
-// VALIDATION MODAL
-// =====================================================
-
-function openValidationModal(id) {
-    document.getElementById('validateRecordId').value = id;
-    document.getElementById('validationStatus').value = '';
-    document.getElementById('validationReason').value = '';
-    document.getElementById('validationModal').classList.add('active');
-}
-
-function closeValidationModal() {
-    document.getElementById('validationModal').classList.remove('active');
-}
-
-async function submitValidation() {
-    const id = document.getElementById('validateRecordId').value;
-    const status = document.getElementById('validationStatus').value;
-    const reason = document.getElementById('validationReason').value.trim();
-    const user = auth.getUser();
-
-    if (!status) {
-        showToast('Pilih status validasi', 'warning');
-        return;
     }
-
-    showLoading('📝 Menyimpan validasi...');
-    try {
-        await storage.validateRecord(id, {
-            validationStatus: status,
-            validationReason: reason,
-            validatedBy: user?.name || 'Unknown',
-            validatedAt: new Date().toISOString()
-        });
-
-        showToast('✅ Validasi berhasil disimpan', 'success');
-        closeValidationModal();
-
-        await loadRecords();
-        renderRecords();
-    } catch (error) {
-        showToast('❌ Gagal menyimpan validasi: ' + error.message, 'error');
-    }
-    hideLoading();
 }
