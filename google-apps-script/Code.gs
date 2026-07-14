@@ -442,7 +442,7 @@ function updateRecordData(id, recordData) {
         if (header === 'id') return data[i][0]; // keep ID
         if (header === 'createdAt') return data[i][idx]; // keep original createdAt
         if (header === 'createdBy') return data[i][idx]; // keep original createdBy
-        if (recordData[header] !== undefined && recordData[header] !== '') return recordData[header];
+        if (recordData[header] !== undefined) return recordData[header];
         return data[i][idx]; // keep original
       });
 

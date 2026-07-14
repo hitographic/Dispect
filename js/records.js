@@ -559,6 +559,30 @@ async function saveRecord() {
             // Update
             recordData.updatedAt = now;
             recordData.updatedBy = user?.name || 'Unknown';
+            
+            // Delete old photos from Drive if they were removed or replaced
+            const existingRecord = allRecords.find(r => String(r.id) === String(id));
+            if (existingRecord) {
+                const keysToDeleteOldFile = new Set([...photosToDelete, ...Object.keys(photoFiles)]);
+                for (const key of keysToDeleteOldFile) {
+                    const oldLink = existingRecord['link_' + key];
+                    if (oldLink) {
+                        const match = oldLink.match(/[-\w]{25,}/);
+                        if (match) {
+                            try {
+                                showLoading(`🗑️ Menghapus foto lama...`);
+                                await storage.deletePhoto(match[0]);
+                            } catch (e) {
+                                console.error('Gagal hapus foto lama:', e);
+                            }
+                        }
+                    }
+                    if (photosToDelete.has(key)) {
+                        recordData[key] = ''; // Also clear the photo name if it was explicitly deleted
+                    }
+                }
+            }
+
             await storage.updateRecord(id, recordData);
             
             if (canValidate()) {
