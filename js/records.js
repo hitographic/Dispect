@@ -509,27 +509,24 @@ async function saveRecord() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
 
     try {
-        // Upload photos first (if any new files)
+        // Upload photos (if any new files) — kompres + paralel 3 jalur + retry
         const uploadedPhotos = {};
-        for (const [key, file] of Object.entries(photoFiles)) {
-            try {
-                showLoading(`📤 Upload foto ${key}...`);
-                const base64 = await fileToBase64(file);
-                const photoLabel = CONFIG.PHOTO_COLUMNS.find(c => c.key === key)?.label || key;
-                const result = await storage.uploadPhoto({
-                    fileName: `${flavor}_${photoLabel}_${Date.now()}.${file.name.split('.').pop()}`,
-                    mimeType: file.type,
-                    base64Data: base64,
-                    folderName: photoLabel
-                });
-                if (result.success && result.fileId) {
-                    uploadedPhotos['link_' + key] = 'https://lh3.googleusercontent.com/d/' + result.fileId;
-                }
-            } catch (uploadErr) {
-                console.error(`Photo upload failed for ${key}:`, uploadErr);
+        const photoEntries = Object.entries(photoFiles);
+        if (photoEntries.length > 0) {
+            showLoading(`🗜️ Mengompres ${photoEntries.length} foto...`);
+            const r = await uploadPhotosParallel(photoEntries, flavor, (done, total) => {
+                const pct = Math.round((done / total) * 100);
+                showLoading(`📤 Upload foto ${done}/${total} (${pct}%)...`);
+            });
+            Object.assign(uploadedPhotos, r.uploaded);
+            hideLoading();
+            if (r.failed.length > 0) {
+                const labels = r.failed.map(k =>
+                    (CONFIG.PHOTO_COLUMNS.find(c => c.key === k) || {}).label || k
+                ).join(', ');
+                showToast(`⚠️ ${r.failed.length} foto gagal terupload (${labels}). Data tetap disimpan — silakan edit & upload ulang foto tersebut.`, 'warning');
             }
         }
-        hideLoading();
 
         photosToDelete.forEach(key => {
             uploadedPhotos['link_' + key] = '';
@@ -637,6 +634,207 @@ function fileToBase64(file) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+// =====================================================
+// FAST UPLOAD: Kompresi + Paralel + Retry
+// Foto HP 3-10MB dikecilkan ke ~150-250KB sebelum upload
+// sehingga 8 foto bisa terkirim dalam 15-30 detik.
+// =====================================================
+
+const UPLOAD_CONFIG = {
+    MAX_DIM: 1280,      // sisi terpanjang max 1280px (cukup untuk inspeksi)
+    QUALITY: 0.72,      // kualitas JPEG 72%
+    CONCURRENCY: 3,     // 3 foto diupload bersamaan
+    MAX_RETRY: 2,       // tiap foto dicoba max 2x
+    RETRY_DELAY: 1500   // jeda antar retry (ms)
+};
+
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+// Kompres satu file gambar via canvas. Return File JPEG terkompresi.
+async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPLOAD_CONFIG.QUALITY) {
+    // Bukan gambar -> kembalikan apa adanya
+    if (!file.type || !file.type.startsWith('image/')) return file;
+    // File sudah kecil (<400KB) -> lewati kompresi agar lebih cepat
+    if (file.size < 400 * 1024) return file;
+
+    let bitmap = null;
+    try {
+        if (typeof createImageBitmap === 'function') {
+            try {
+                bitmap = await createImageBitmap(file, { imageOrientation: 'fromImage' });
+            } catch (e) {
+                bitmap = await createImageBitmap(file);
+            }
+        }
+    } catch (e) { bitmap = null; }
+
+    let w, h, source = null;
+    if (bitmap) {
+        w = bitmap.width; h = bitmap.height; source = bitmap;
+    } else {
+        // Fallback: <img>
+        const url = URL.createObjectURL(file);
+        try {
+            const img = await new Promise((resolve, reject) => {
+                const el = new Image();
+                el.onload = () => resolve(el);
+                el.onerror = () => reject(new Error('File bukan gambar valid'));
+                el.src = url;
+            });
+            w = img.naturalWidth; h = img.naturalHeight; source = img;
+        } catch (e) {
+            URL.revokeObjectURL(url);
+            return file; // gagal decode -> kirim original
+        }
+        // jangan revoke dulu sebelum draw; revoke setelah draw di bawah
+        source._objectUrl = url;
+    }
+
+    try {
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        const dw = Math.max(1, Math.round(w * scale));
+        const dh = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = dw; canvas.height = dh;
+        const ctx = canvas.getContext('2d');
+        if (bitmap) {
+            ctx.drawImage(bitmap, 0, 0, dw, dh);
+            bitmap.close();
+        } else {
+            ctx.drawImage(source, 0, 0, dw, dh);
+            URL.revokeObjectURL(source._objectUrl);
+        }
+        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
+        if (!blob) return file;
+        const baseName = (file.name || 'photo').replace(/\.\w+$/, '');
+        const out = new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
+        console.log(`🗜️ Kompresi: ${(file.size / 1024).toFixed(0)}KB → ${(out.size / 1024).toFixed(0)}KB (${file.name})`);
+        return out;
+    } catch (e) {
+        console.warn('Kompresi gagal, pakai file original:', e.message);
+        try { if (bitmap) bitmap.close(); } catch (_) {}
+        return file;
+    }
+}
+
+function sleep(ms) {
+    return new Promise(res => setTimeout(res, ms));
+}
+
+// Siapkan payload satu foto: kompres -> base64 -> objek siap kirim.
+async function preparePhotoPayload(key, file, flavor) {
+    const photoLabel = CONFIG.PHOTO_COLUMNS.find(c => c.key === key)?.label || key;
+    const compressed = await compressImage(file);
+    const base64 = await blobToBase64(compressed);
+    const ext = (compressed.name && compressed.name.includes('.'))
+        ? compressed.name.split('.').pop()
+        : 'jpg';
+    return {
+        key,
+        payload: {
+            fileName: `${flavor}_${photoLabel}_${Date.now()}.${ext}`,
+            mimeType: compressed.type || 'image/jpeg',
+            base64Data: base64,
+            folderName: photoLabel
+        }
+    };
+}
+
+// Kirim SATU payload foto dengan retry. Return fileId atau throw.
+async function sendPhotoPayload(payload) {
+    let lastErr = null;
+    for (let attempt = 1; attempt <= UPLOAD_CONFIG.MAX_RETRY; attempt++) {
+        try {
+            const result = await storage.uploadPhoto(payload);
+            if (result && result.success && result.fileId) return result.fileId;
+            lastErr = new Error((result && result.error) || 'Upload gagal tanpa pesan');
+        } catch (e) {
+            lastErr = e;
+        }
+        if (attempt < UPLOAD_CONFIG.MAX_RETRY) {
+            await sleep(UPLOAD_CONFIG.RETRY_DELAY * attempt);
+        }
+    }
+    throw lastErr;
+}
+
+// Upload BANYAK foto dengan strategi tercepat:
+// 1. Kompres semua (paralel, lokal — cepat).
+// 2. Coba BATCH 1 request (hemat 7x cold-start Apps Script).
+// 3. Sisa yang gagal -> satuan paralel (max CONCURRENCY jalur) + retry.
+// onProgress(done, total) dipanggil tiap satu foto selesai.
+// Return { uploaded: {link_key: url}, failed: [key...] }
+async function uploadPhotosParallel(entries, flavor, onProgress) {
+    const uploaded = {};
+    const failed = [];
+    const total = entries.length;
+    let done = 0;
+    const tick = () => { done++; if (onProgress) onProgress(done, total); };
+
+    // --- Langkah 1: kompres semua sekaligus ---
+    const prepared = await Promise.all(
+        entries.map(([key, file]) => preparePhotoPayload(key, file, flavor).catch(err => {
+            console.error(`Kompresi gagal untuk ${key}:`, err);
+            failed.push(key); tick();
+            return null;
+        }))
+    );
+    let pending = prepared.filter(Boolean);
+
+    // --- Langkah 2: coba batch 1 request (butuh backend terbaru) ---
+    if (pending.length > 1) {
+        try {
+            const batchResult = await storage.uploadPhotos(
+                pending.map(p => ({ key: p.key, ...p.payload }))
+            );
+            if (batchResult && batchResult.success && Array.isArray(batchResult.results)) {
+                const okKeys = new Set();
+                for (const r of batchResult.results) {
+                    if (r && r.fileId) {
+                        uploaded['link_' + r.key] = 'https://lh3.googleusercontent.com/d/' + r.fileId;
+                        okKeys.add(r.key); tick();
+                    }
+                }
+                pending = pending.filter(p => !okKeys.has(p.key));
+                // yang error di batch -> lanjut ke satuan di bawah (tanpa tick ganda)
+                if (pending.length === 0) return { uploaded, failed };
+            }
+            // else: backend lama / batch gagal total -> fallback satuan semua
+        } catch (e) {
+            console.warn('Batch upload gagal, fallback ke satuan:', e.message);
+        }
+    }
+
+    // --- Langkah 3: satuan paralel + retry ---
+    let cursor = 0;
+    async function worker() {
+        while (cursor < pending.length) {
+            const item = pending[cursor++];
+            try {
+                const fileId = await sendPhotoPayload(item.payload);
+                uploaded['link_' + item.key] = 'https://lh3.googleusercontent.com/d/' + fileId;
+            } catch (err) {
+                console.error(`Photo upload failed for ${item.key}:`, err);
+                failed.push(item.key);
+            }
+            tick();
+        }
+    }
+
+    const workers = [];
+    const n = Math.min(UPLOAD_CONFIG.CONCURRENCY, pending.length);
+    for (let i = 0; i < n; i++) workers.push(worker());
+    await Promise.all(workers);
+    return { uploaded, failed };
 }
 
 // =====================================================

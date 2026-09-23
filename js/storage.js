@@ -147,6 +147,17 @@ class Storage {
         return { success: false, error: 'Offline - cannot upload' };
     }
 
+    async uploadPhotos(photos) {
+        if (this.useGoogleSheets && this.isOnline) {
+            try {
+                return await sheetsDB.uploadPhotos(photos);
+            } catch (error) {
+                console.error('❌ Storage: Error batch uploading photos:', error);
+            }
+        }
+        return { success: false, error: 'Offline - cannot upload' };
+    }
+
     async deletePhoto(fileId) {
         if (this.useGoogleSheets && this.isOnline) {
             try {

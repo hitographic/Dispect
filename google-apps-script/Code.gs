@@ -135,6 +135,9 @@ function handleRequest(e) {
       case 'uploadPhoto':
         result = handleUploadPhoto(merged);
         break;
+      case 'uploadPhotos':
+        result = handleUploadPhotos(merged.photos);
+        break;
       case 'deletePhoto':
         result = handleDeletePhoto(merged.fileId);
         break;
@@ -552,6 +555,57 @@ function handleDeletePhoto(fileId) {
     return { success: true, message: 'Photo deleted' };
   } catch (error) {
     return { success: false, error: 'Delete failed: ' + error.toString() };
+  }
+}
+
+// Batch upload: terima array foto [{key, fileName, mimeType, base64Data, folderName}]
+// dalam 1 request — hemat cold-start dibanding 8x request satuan.
+// Per foto yang gagal tetap dilaporkan; yang sukses tidak di-rollback.
+function handleUploadPhotos(photos) {
+  try {
+    if (!photos) return { success: false, error: 'No photos data' };
+    // Kadang datang sebagai string JSON (JSONP/merge) -> parse dulu
+    if (typeof photos === 'string') {
+      try { photos = JSON.parse(photos); } catch (err) {
+        return { success: false, error: 'Invalid photos data' };
+      }
+    }
+    if (!photos.length) return { success: false, error: 'Empty photos array' };
+    // Batas aman: max 10 foto per batch agar tidak melebihi limit eksekusi
+    if (photos.length > 10) return { success: false, error: 'Too many photos (max 10)' };
+
+    var parentFolder = DriveApp.getFolderById(DRIVE_FOLDER_ID);
+    var folderCache = {};
+    function getTargetFolder(folderName) {
+      if (!folderName) return parentFolder;
+      if (folderCache[folderName]) return folderCache[folderName];
+      var found = parentFolder.getFoldersByName(folderName);
+      var folder = found.hasNext() ? found.next() : parentFolder.createFolder(folderName);
+      folderCache[folderName] = folder;
+      return folder;
+    }
+
+    var results = [];
+    for (var i = 0; i < photos.length; i++) {
+      var p = photos[i] || {};
+      try {
+        if (!p.base64Data) throw new Error('No photo data');
+        var blob = Utilities.newBlob(
+          Utilities.base64Decode(p.base64Data),
+          p.mimeType || 'image/jpeg',
+          p.fileName || ('photo_' + Date.now() + '_' + i + '.jpg')
+        );
+        var file = getTargetFolder(p.folderName).createFile(blob);
+        results.push({ key: p.key || String(i), success: true, fileId: file.getId() });
+      } catch (err) {
+        results.push({ key: p.key || String(i), success: false, error: err.toString() });
+      }
+    }
+
+    var okCount = results.filter(function (r) { return r.success; }).length;
+    return { success: okCount > 0, results: results };
+  } catch (error) {
+    return { success: false, error: 'Batch upload failed: ' + error.toString() };
   }
 }
 

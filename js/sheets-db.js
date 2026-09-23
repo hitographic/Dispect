@@ -49,7 +49,14 @@ class GoogleSheetsDB {
         url.searchParams.set('action', action);
 
         const bodyKeys = Object.keys(body);
-        const hasLargeData = bodyKeys.some(k => typeof body[k] === 'string' && body[k].length > 50000);
+        // Ukur dari keseluruhan body (mendukung array/nested seperti batch
+        // { photos: [...] }), bukan hanya string top-level.
+        let hasLargeData = false;
+        try {
+            hasLargeData = JSON.stringify(body).length > 50000;
+        } catch (e) {
+            hasLargeData = true;
+        }
         console.log(`📤 POST ${action}`, bodyKeys, hasLargeData ? '(large payload)' : '');
 
         // Method 1: fetch POST with text/plain
@@ -87,6 +94,13 @@ class GoogleSheetsDB {
         }
 
         // Method 2: JSONP fallback via GET with data parameter
+        // DILEWATI untuk payload besar (foto base64): URL GET terbatas
+        // ~8KB sedangkan base64 foto jutaan karakter -> pasti gagal dan
+        // hanya membuang 30 detik timeout per foto. Langsung throw agar
+        // retry via fetch POST yang bisa bawa body besar.
+        if (hasLargeData) {
+            throw fetchError || new Error('POST large payload failed (JSONP fallback skipped)');
+        }
         try {
             const getUrl = new URL(this.webAppUrl);
             getUrl.searchParams.set('action', action);
@@ -202,6 +216,14 @@ class GoogleSheetsDB {
 
     async uploadPhoto(photoData) {
         return await this.gPost('uploadPhoto', photoData);
+    }
+
+    // Batch upload: kirim banyak foto dalam 1 request (hemat cold-start
+    // Apps Script). Butuh backend terbaru (action 'uploadPhotos').
+    // Jika backend lama -> { success:false, error:'Unknown action...' }
+    // dan pemanggil harus fallback ke uploadPhoto satuan.
+    async uploadPhotos(photos) {
+        return await this.gPost('uploadPhotos', { photos });
     }
 
     async deletePhoto(fileId) {
