@@ -62,7 +62,9 @@ class GoogleSheetsDB {
         // Method 1: fetch POST with text/plain
         try {
             const controller = new AbortController();
-            const fetchTimeout = hasLargeData ? 120000 : 30000;
+            // Foto high-res (s/d 5MB, base64 ~6,7MB) butuh waktu lebih lama —
+            // beri timeout 180 detik untuk payload besar.
+            const fetchTimeout = hasLargeData ? 180000 : 30000;
             const timer = setTimeout(() => controller.abort(), fetchTimeout);
 
             const response = await fetch(url.toString(), {

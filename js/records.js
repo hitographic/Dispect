@@ -509,7 +509,7 @@ async function saveRecord() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
 
     try {
-        // Upload photos (if any new files) — kompres + paralel 3 jalur + retry
+        // Upload photos (if any new files) — kompres high-res (max 5MB/foto) + paralel + retry
         const uploadedPhotos = {};
         const photoEntries = Object.entries(photoFiles);
         if (photoEntries.length > 0) {
@@ -637,17 +637,22 @@ function fileToBase64(file) {
 }
 
 // =====================================================
-// FAST UPLOAD: Kompresi + Paralel + Retry
-// Foto HP 3-10MB dikecilkan ke ~150-250KB sebelum upload
-// sehingga 8 foto bisa terkirim dalam 15-30 detik.
+// FAST UPLOAD: Kompresi high-res + Paralel + Retry
+// - File <= 5MB dikirim ORIGINAL tanpa kompresi (kualitas 100%).
+// - File > 5MB dikompres adaptif (resolusi max 3840px, JPEG q92
+//   turun bertahap) sampai <= 5MB. Misal foto 10MB -> ~3-5MB
+//   tetap tajam, bukan 200KB seperti sebelumnya.
 // =====================================================
 
 const UPLOAD_CONFIG = {
-    MAX_DIM: 1280,      // sisi terpanjang max 1280px (cukup untuk inspeksi)
-    QUALITY: 0.72,      // kualitas JPEG 72%
-    CONCURRENCY: 3,     // 3 foto diupload bersamaan
+    MAX_DIM: 3840,                    // sisi terpanjang max 3840px (4K, tetap high-res)
+    QUALITY: 0.92,                    // kualitas JPEG awal 92%
+    MIN_QUALITY: 0.70,                // kualitas terendah bila file masih > 5MB
+    MAX_FILE_SIZE: 5 * 1024 * 1024,   // target: maksimal 5MB per foto
+    BATCH_MAX_BYTES: 8 * 1024 * 1024, // batch 1-request hanya bila total <= 8MB
+    CONCURRENCY: 2,     // 2 foto diupload bersamaan (file besar -> jangan 3)
     MAX_RETRY: 2,       // tiap foto dicoba max 2x
-    RETRY_DELAY: 1500   // jeda antar retry (ms)
+    RETRY_DELAY: 2000   // jeda antar retry (ms)
 };
 
 function blobToBase64(blob) {
@@ -659,12 +664,17 @@ function blobToBase64(blob) {
     });
 }
 
-// Kompres satu file gambar via canvas. Return File JPEG terkompresi.
+// Kompres satu file gambar via canvas dengan target max 5MB high-res.
+// - File <= MAX_FILE_SIZE -> kembalikan ORIGINAL (tanpa quality loss).
+// - File lebih besar -> encode JPEG adaptif: coba kualitas 0.92 di
+//   resolusi penuh (max 3840px); bila masih > 5MB, turunkan kualitas
+//   lalu kecilkan dimensi bertahap sampai <= 5MB.
+// Return File JPEG terkompresi (atau file original bila gagal/decode error).
 async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPLOAD_CONFIG.QUALITY) {
     // Bukan gambar -> kembalikan apa adanya
     if (!file.type || !file.type.startsWith('image/')) return file;
-    // File sudah kecil (<400KB) -> lewati kompresi agar lebih cepat
-    if (file.size < 400 * 1024) return file;
+    // File sudah <= 5MB -> JANGAN dikompres, kirim original (kualitas 100%)
+    if (file.size <= UPLOAD_CONFIG.MAX_FILE_SIZE) return file;
 
     let bitmap = null;
     try {
@@ -693,35 +703,66 @@ async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPL
             w = img.naturalWidth; h = img.naturalHeight; source = img;
         } catch (e) {
             URL.revokeObjectURL(url);
-            return file; // gagal decode -> kirim original
+            return file; // gagal decode (mis. HEIC) -> kirim original
         }
         // jangan revoke dulu sebelum draw; revoke setelah draw di bawah
         source._objectUrl = url;
     }
 
-    try {
-        const scale = Math.min(1, maxDim / Math.max(w, h));
-        const dw = Math.max(1, Math.round(w * scale));
-        const dh = Math.max(1, Math.round(h * scale));
-        const canvas = document.createElement('canvas');
-        canvas.width = dw; canvas.height = dh;
-        const ctx = canvas.getContext('2d');
-        if (bitmap) {
-            ctx.drawImage(bitmap, 0, 0, dw, dh);
-            bitmap.close();
-        } else {
-            ctx.drawImage(source, 0, 0, dw, dh);
-            URL.revokeObjectURL(source._objectUrl);
+    // Encode satu ukuran canvas ke JPEG dengan quality tertentu.
+    const encodeAt = (dw, dh, q) => new Promise((res) => {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = dw; canvas.height = dh;
+            const ctx = canvas.getContext('2d');
+            // Background putih agar PNG transparan tidak jadi hitam saat ke JPEG
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, dw, dh);
+            if (bitmap) {
+                ctx.drawImage(bitmap, 0, 0, dw, dh);
+            } else {
+                ctx.drawImage(source, 0, 0, dw, dh);
+            }
+            canvas.toBlob(res, 'image/jpeg', q);
+        } catch (e) {
+            res(null);
         }
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', quality));
-        if (!blob) return file;
+    });
+
+    try {
+        // Tangga dimensi (high-res dulu) & kualitas (tinggi dulu).
+        const dimSteps = [maxDim, 3200, 2560, 1920].filter(d => d > 0);
+        const qSteps = [quality, 0.85, 0.78, UPLOAD_CONFIG.MIN_QUALITY || 0.7];
+        let bestBlob = null;
+
+        outer:
+        for (const dim of dimSteps) {
+            const scale = Math.min(1, dim / Math.max(w, h));
+            const dw = Math.max(1, Math.round(w * scale));
+            const dh = Math.max(1, Math.round(h * scale));
+            for (const q of qSteps) {
+                const blob = await encodeAt(dw, dh, q);
+                if (!blob) continue;
+                bestBlob = blob;
+                if (blob.size <= UPLOAD_CONFIG.MAX_FILE_SIZE) {
+                    break outer; // dapat yang <= 5MB dengan resolusi/kualitas terbaik
+                }
+                // masih > 5MB -> coba kualitas lebih rendah / dimensi lebih kecil
+            }
+        }
+
+        if (bitmap) { try { bitmap.close(); } catch (_) {} }
+        else if (source && source._objectUrl) URL.revokeObjectURL(source._objectUrl);
+
+        if (!bestBlob) return file;
         const baseName = (file.name || 'photo').replace(/\.\w+$/, '');
-        const out = new File([blob], baseName + '.jpg', { type: 'image/jpeg' });
-        console.log(`🗜️ Kompresi: ${(file.size / 1024).toFixed(0)}KB → ${(out.size / 1024).toFixed(0)}KB (${file.name})`);
+        const out = new File([bestBlob], baseName + '.jpg', { type: 'image/jpeg' });
+        console.log(`🗜️ Kompresi high-res: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(out.size / 1024 / 1024).toFixed(2)}MB (${file.name})`);
         return out;
     } catch (e) {
         console.warn('Kompresi gagal, pakai file original:', e.message);
         try { if (bitmap) bitmap.close(); } catch (_) {}
+        try { if (source && source._objectUrl) URL.revokeObjectURL(source._objectUrl); } catch (_) {}
         return file;
     }
 }
@@ -768,8 +809,10 @@ async function sendPhotoPayload(payload) {
 }
 
 // Upload BANYAK foto dengan strategi tercepat:
-// 1. Kompres semua (paralel, lokal — cepat).
-// 2. Coba BATCH 1 request (hemat 7x cold-start Apps Script).
+// 1. Kompres high-res semua (paralel, lokal — cepat, max 5MB/foto).
+// 2. Coba BATCH 1 request HANYA bila total payload kecil (hemat cold-start
+//    Apps Script). File besar -> langsung satuan agar tidak melebihi limit
+//    ukuran/timeout Apps Script.
 // 3. Sisa yang gagal -> satuan paralel (max CONCURRENCY jalur) + retry.
 // onProgress(done, total) dipanggil tiap satu foto selesai.
 // Return { uploaded: {link_key: url}, failed: [key...] }
@@ -791,7 +834,10 @@ async function uploadPhotosParallel(entries, flavor, onProgress) {
     let pending = prepared.filter(Boolean);
 
     // --- Langkah 2: coba batch 1 request (butuh backend terbaru) ---
-    if (pending.length > 1) {
+    // Dilewati bila total payload besar (foto high-res 5MB): 1 request raksasa
+    // rawan timeout/limit Apps Script — lebih aman upload satuan paralel.
+    const totalBytes = pending.reduce((s, p) => s + ((p.payload.base64Data || '').length * 0.75), 0);
+    if (pending.length > 1 && totalBytes <= (UPLOAD_CONFIG.BATCH_MAX_BYTES || 8 * 1024 * 1024)) {
         try {
             const batchResult = await storage.uploadPhotos(
                 pending.map(p => ({ key: p.key, ...p.payload }))
