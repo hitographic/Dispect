@@ -16,7 +16,7 @@ const CONFIG = {
     // App Configuration
     APP_NAME: 'DISPECT',
     APP_FULL_NAME: 'Display Inspection Tracker',
-    VERSION: '1.0.0',
+    VERSION: '1.1.0',
 
     // Base path for GitHub Pages
     BASE_PATH: '/Dispect/',

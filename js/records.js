@@ -678,7 +678,10 @@ async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPL
     // Bukan gambar -> kembalikan apa adanya
     if (!file.type || !file.type.startsWith('image/')) return file;
     // Etiket Banded -> SELALU original 1:1, tanpa kompresi berapa pun ukurannya
-    if (key && (UPLOAD_CONFIG.ORIGINAL_KEYS || []).includes(key)) {
+    // (perbandingan case-insensitive agar tidak lolos karena beda huruf)
+    const normKey = String(key || '').trim().toLowerCase();
+    const originalKeys = (UPLOAD_CONFIG.ORIGINAL_KEYS || []).map(k => String(k).toLowerCase());
+    if (normKey && originalKeys.includes(normKey)) {
         console.log(`📷 Etiket Banded: original ${(file.size / 1024 / 1024).toFixed(2)}MB tanpa kompresi (${file.name})`);
         return file;
     }
@@ -784,6 +787,7 @@ function sleep(ms) {
 async function preparePhotoPayload(key, file, flavor) {
     const photoLabel = CONFIG.PHOTO_COLUMNS.find(c => c.key === key)?.label || key;
     const compressed = await compressImage(file, UPLOAD_CONFIG.MAX_DIM, UPLOAD_CONFIG.QUALITY, key);
+    console.log(`📤 Payload ${key}: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(compressed.size / 1024 / 1024).toFixed(2)}MB`);
     const base64 = await blobToBase64(compressed);
     const ext = (compressed.name && compressed.name.includes('.'))
         ? compressed.name.split('.').pop()
