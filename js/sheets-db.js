@@ -51,9 +51,13 @@ class GoogleSheetsDB {
         const bodyKeys = Object.keys(body);
         // Ukur dari keseluruhan body (mendukung array/nested seperti batch
         // { photos: [...] }), bukan hanya string top-level.
+        // Etiket Banded bisa original belasan MB -> timeout diskalakan
+        // dengan ukuran payload (max 5 menit), payload kecil tetap 30 detik.
         let hasLargeData = false;
+        let bodyLen = 0;
         try {
-            hasLargeData = JSON.stringify(body).length > 50000;
+            bodyLen = JSON.stringify(body).length;
+            hasLargeData = bodyLen > 50000;
         } catch (e) {
             hasLargeData = true;
         }
@@ -62,9 +66,10 @@ class GoogleSheetsDB {
         // Method 1: fetch POST with text/plain
         try {
             const controller = new AbortController();
-            // Foto high-res (s/d 5MB, base64 ~6,7MB) butuh waktu lebih lama —
-            // beri timeout 180 detik untuk payload besar.
-            const fetchTimeout = hasLargeData ? 180000 : 30000;
+            const approxMB = bodyLen / (1024 * 1024);
+            const fetchTimeout = hasLargeData
+                ? Math.min(300000, Math.round(90000 + approxMB * 15000))
+                : 30000;
             const timer = setTimeout(() => controller.abort(), fetchTimeout);
 
             const response = await fetch(url.toString(), {

@@ -642,13 +642,16 @@ function fileToBase64(file) {
 // - File > 5MB dikompres adaptif (resolusi max 3840px, JPEG q92
 //   turun bertahap) sampai <= 5MB. Misal foto 10MB -> ~3-5MB
 //   tetap tajam, bukan 200KB seperti sebelumnya.
+// - PENGECUALIAN: Etiket Banded (photo_etiketbanded) SELALU dikirim
+//   ORIGINAL 1:1 tanpa kompresi — misal 12MB ya terupload 12MB.
 // =====================================================
 
 const UPLOAD_CONFIG = {
     MAX_DIM: 3840,                    // sisi terpanjang max 3840px (4K, tetap high-res)
     QUALITY: 0.92,                    // kualitas JPEG awal 92%
     MIN_QUALITY: 0.70,                // kualitas terendah bila file masih > 5MB
-    MAX_FILE_SIZE: 5 * 1024 * 1024,   // target: maksimal 5MB per foto
+    MAX_FILE_SIZE: 5 * 1024 * 1024,   // target: maksimal 5MB per foto (non-pengecualian)
+    ORIGINAL_KEYS: ['photo_etiketbanded'], // Etiket Banded: selalu original, tanpa kompresi
     BATCH_MAX_BYTES: 8 * 1024 * 1024, // batch 1-request hanya bila total <= 8MB
     CONCURRENCY: 2,     // 2 foto diupload bersamaan (file besar -> jangan 3)
     MAX_RETRY: 2,       // tiap foto dicoba max 2x
@@ -665,14 +668,20 @@ function blobToBase64(blob) {
 }
 
 // Kompres satu file gambar via canvas dengan target max 5MB high-res.
+// - key termasuk ORIGINAL_KEYS (Etiket Banded) -> SELALU ORIGINAL 1:1.
 // - File <= MAX_FILE_SIZE -> kembalikan ORIGINAL (tanpa quality loss).
 // - File lebih besar -> encode JPEG adaptif: coba kualitas 0.92 di
 //   resolusi penuh (max 3840px); bila masih > 5MB, turunkan kualitas
 //   lalu kecilkan dimensi bertahap sampai <= 5MB.
 // Return File JPEG terkompresi (atau file original bila gagal/decode error).
-async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPLOAD_CONFIG.QUALITY) {
+async function compressImage(file, maxDim = UPLOAD_CONFIG.MAX_DIM, quality = UPLOAD_CONFIG.QUALITY, key = '') {
     // Bukan gambar -> kembalikan apa adanya
     if (!file.type || !file.type.startsWith('image/')) return file;
+    // Etiket Banded -> SELALU original 1:1, tanpa kompresi berapa pun ukurannya
+    if (key && (UPLOAD_CONFIG.ORIGINAL_KEYS || []).includes(key)) {
+        console.log(`📷 Etiket Banded: original ${(file.size / 1024 / 1024).toFixed(2)}MB tanpa kompresi (${file.name})`);
+        return file;
+    }
     // File sudah <= 5MB -> JANGAN dikompres, kirim original (kualitas 100%)
     if (file.size <= UPLOAD_CONFIG.MAX_FILE_SIZE) return file;
 
@@ -771,10 +780,10 @@ function sleep(ms) {
     return new Promise(res => setTimeout(res, ms));
 }
 
-// Siapkan payload satu foto: kompres -> base64 -> objek siap kirim.
+// Siapkan payload satu foto: kompres (kecuali Etiket Banded = original) -> base64 -> objek siap kirim.
 async function preparePhotoPayload(key, file, flavor) {
     const photoLabel = CONFIG.PHOTO_COLUMNS.find(c => c.key === key)?.label || key;
-    const compressed = await compressImage(file);
+    const compressed = await compressImage(file, UPLOAD_CONFIG.MAX_DIM, UPLOAD_CONFIG.QUALITY, key);
     const base64 = await blobToBase64(compressed);
     const ext = (compressed.name && compressed.name.includes('.'))
         ? compressed.name.split('.').pop()
